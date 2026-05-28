@@ -1,6 +1,4 @@
 const audio = document.querySelector("#audio");
-const fileInput = document.querySelector("#file-input");
-const dropZone = document.querySelector("[data-drop-zone]");
 const searchInput = document.querySelector("#search-input");
 const progressInput = document.querySelector("#progress");
 const volumeInput = document.querySelector("#volume");
@@ -8,7 +6,6 @@ const toast = document.querySelector("#toast");
 
 const els = {
   mixGrid: document.querySelector("#mix-grid"),
-  recentList: document.querySelector("#recent-list"),
   libraryList: document.querySelector("#library-list"),
   libraryCount: document.querySelector("#library-count"),
   queueList: document.querySelector("#queue-list"),
@@ -24,11 +21,11 @@ const els = {
   playIcon: document.querySelector("#play-icon use"),
   elapsed: document.querySelector("#elapsed"),
   duration: document.querySelector("#duration"),
+  appsToggle: document.querySelector("#apps-launcher-toggle"),
+  appsMenu: document.querySelector("#apps-launcher-menu"),
+  appsGrid: document.querySelector("#apps-launcher-grid"),
 };
 
-const DB_NAME = "waveroom-library";
-const DB_VERSION = 1;
-const TRACK_STORE = "tracks";
 const FAVORITES_KEY = "waveroom:favorites";
 const VIEW_KEY = "waveroom:view";
 const VOLUME_KEY = "waveroom:volume";
@@ -37,6 +34,70 @@ const RADIO_TAGS = ["hits", "top40", "top 40", "chart", "pop"];
 const RADIO_PINNED_SEARCHES = ["Capital", "BBC Radio 1", "Z100", "KIIS", "NRJ Hits", "Hits 1", "LOS 40", "Radio 105", "1LIVE"];
 const RADIO_EXCLUDE = /\b(60s|70s|80s|90s|classic|classical|oldies|vinyl|jazz|talk|news|sports)\b/i;
 const RADIO_INCLUDE = /\b(hit|hits|top\s?40|chart|pop|contemporary hit|chr)\b/i;
+const APP_LOGO = "assets/mk-music-logo.svg";
+const MK_APPS = [
+  {
+    id: "music",
+    name: "MK Music",
+    logoUrl: APP_LOGO,
+    current: true,
+  },
+  {
+    id: "chess",
+    name: "Chess",
+    href: "https://mkchess.co.uk/",
+    logoUrl: "https://cdn.shopify.com/s/files/1/1017/6456/3275/files/Untitled_design_8.png?v=1776191651",
+  },
+  {
+    id: "food",
+    name: "Food",
+    href: "https://mkfood.co.uk/",
+    logoUrl:
+      "https://mkfood.co.uk/cdn/shop/files/ChatGPT_Image_Nov_26_2025_10_55_01_AM.png?v=1770035659&width=500",
+  },
+  {
+    id: "redway",
+    name: "Redway",
+    href: "https://runmk.com/",
+    logoUrl: "https://runmk.com/assets/images/image04.png?v=86cef636",
+  },
+  {
+    id: "park",
+    name: "Park",
+    href: "https://runmk.com/",
+    logoUrl: "https://cdn.shopify.com/s/files/1/1017/6456/3275/files/parking10.png?v=1776251596",
+  },
+  {
+    id: "safety",
+    name: "Safety",
+    href: "https://runmk.com/",
+    logoUrl: "https://cdn.shopify.com/s/files/1/1017/6456/3275/files/safety5.png?v=1776193239",
+  },
+  {
+    id: "sleep",
+    name: "Sleep",
+    href: "https://mksleep.carrd.co/",
+    logoUrl: "https://mksleep.carrd.co/assets/images/logo1.png?v=943d3eb2",
+  },
+  {
+    id: "find",
+    name: "Find",
+    href: "https://2413003.github.io/mkfind2/",
+    logoUrl: "https://cdn.shopify.com/s/files/1/1017/6456/3275/files/find_app_logo_v2.svg?v=1776195834",
+  },
+  {
+    id: "finance",
+    name: "Finance",
+    href: "https://mksleep.carrd.co/",
+    logoUrl: "https://cdn.shopify.com/s/files/1/1017/6456/3275/files/Minimalist_finance_logo_design.png?v=1776193883",
+  },
+  {
+    id: "ads",
+    name: "Ads",
+    href: "https://mksleep.carrd.co/",
+    logoUrl: "https://cdn.shopify.com/s/files/1/1017/6456/3275/files/ads_logo_google.png?v=1776351553",
+  },
+];
 
 const demoBlueprints = [
   {
@@ -94,9 +155,10 @@ const demoBlueprints = [
 ];
 
 const state = {
-  db: null,
   tracks: [],
-  view: localStorage.getItem(VIEW_KEY) || "Library",
+  view: ["Library", "Search", "Playlists", "Favorites"].includes(localStorage.getItem(VIEW_KEY))
+    ? localStorage.getItem(VIEW_KEY)
+    : "Library",
   selectedPlaylist: "",
   query: "",
   currentId: "",
@@ -113,6 +175,7 @@ boot();
 
 async function boot() {
   bindEvents();
+  renderAppsLauncher();
   audio.volume = Number(localStorage.getItem(VOLUME_KEY) || 0.74);
   volumeInput.value = audio.volume;
 
@@ -131,15 +194,6 @@ async function boot() {
   state.tracks = [...radioTracks, ...demos];
   state.queue = state.tracks.map((track) => track.id);
   state.currentId = state.tracks[0]?.id || demos[0].id;
-
-  try {
-    state.db = await openDatabase();
-    const storedTracks = await readStoredTracks();
-    state.tracks = [...radioTracks, ...demos, ...storedTracks.map(materializeStoredTrack)];
-  } catch (error) {
-    console.warn("Local library storage is unavailable.", error);
-    showToast("Storage off");
-  }
 
   syncAudioSource(false);
   render();
@@ -165,9 +219,6 @@ function bindEvents() {
 
     const id = button.dataset.trackId;
     switch (button.dataset.action) {
-      case "open-files":
-        fileInput.click();
-        break;
       case "play-track":
         playTrack(id, getVisibleTracks().map((track) => track.id));
         break;
@@ -210,11 +261,6 @@ function bindEvents() {
     }
   });
 
-  fileInput.addEventListener("change", async (event) => {
-    await importFiles(event.target.files);
-    fileInput.value = "";
-  });
-
   searchInput.addEventListener("input", (event) => {
     state.query = event.target.value.trim();
     if (state.query) state.view = "Search";
@@ -229,6 +275,12 @@ function bindEvents() {
   volumeInput.addEventListener("input", () => {
     audio.volume = Number(volumeInput.value);
     localStorage.setItem(VOLUME_KEY, String(audio.volume));
+  });
+
+  els.appsToggle?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setAppsMenuOpen(els.appsMenu?.hidden ?? true);
   });
 
   audio.addEventListener("play", () => {
@@ -269,22 +321,14 @@ function bindEvents() {
     }
   });
 
-  ["dragenter", "dragover"].forEach((type) => {
-    dropZone.addEventListener(type, (event) => {
-      event.preventDefault();
-      dropZone.classList.add("dragging");
-    });
+  document.addEventListener("click", (event) => {
+    if (!els.appsMenu || els.appsMenu.hidden) return;
+    const launcherShell = event.target instanceof Element ? event.target.closest(".apps-launcher-shell") : null;
+    if (!launcherShell) setAppsMenuOpen(false);
   });
 
-  ["dragleave", "drop"].forEach((type) => {
-    dropZone.addEventListener(type, (event) => {
-      event.preventDefault();
-      dropZone.classList.remove("dragging");
-    });
-  });
-
-  dropZone.addEventListener("drop", async (event) => {
-    await importFiles(event.dataTransfer.files);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") setAppsMenuOpen(false);
   });
 
   if ("mediaSession" in navigator) {
@@ -309,10 +353,76 @@ function persistView() {
   localStorage.setItem(VIEW_KEY, state.view);
 }
 
+function setAppsMenuOpen(isOpen) {
+  if (!els.appsToggle || !els.appsMenu) return;
+  const open = Boolean(isOpen);
+  els.appsMenu.hidden = !open;
+  els.appsToggle.setAttribute("aria-expanded", String(open));
+}
+
+function renderAppsLauncher() {
+  if (!els.appsGrid) return;
+
+  const fragment = document.createDocumentFragment();
+  MK_APPS.forEach((app) => {
+    fragment.appendChild(createAppTile(app));
+  });
+  els.appsGrid.replaceChildren(fragment);
+}
+
+function createAppTile(app) {
+  const tile = document.createElement(app.href ? "a" : "button");
+  const icon = document.createElement("span");
+  const label = document.createElement("span");
+
+  tile.className = "apps-tile";
+  tile.setAttribute("aria-label", app.current ? app.name : `Open ${app.name}`);
+  if (app.current) tile.classList.add("is-active");
+
+  if (app.href) {
+    tile.href = app.href;
+    tile.target = "_blank";
+    tile.rel = "noreferrer noopener";
+  } else {
+    tile.type = "button";
+  }
+
+  icon.className = "apps-tile__icon";
+  if (app.logoUrl) {
+    const image = document.createElement("img");
+    image.src = app.logoUrl;
+    image.alt = "";
+    image.loading = "lazy";
+    image.decoding = "async";
+    image.addEventListener("error", () => {
+      icon.textContent = getAppInitials(app.name);
+    });
+    icon.appendChild(image);
+  } else {
+    icon.textContent = getAppInitials(app.name);
+  }
+
+  label.className = "apps-tile__label";
+  label.textContent = app.name;
+
+  tile.append(icon, label);
+  tile.addEventListener("click", () => setAppsMenuOpen(false));
+  return tile;
+}
+
+function getAppInitials(name) {
+  return String(name || "MK")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
 function render() {
   renderNavigation();
   renderMixes();
-  renderRecentImports();
   renderLibrary();
   renderQueue();
   renderPlayerChrome();
@@ -350,18 +460,6 @@ function renderMixes() {
     `;
   });
   els.mixGrid.innerHTML = cards.join("");
-}
-
-function renderRecentImports() {
-  const uploads = state.tracks
-    .filter((track) => track.source === "Upload")
-    .sort((a, b) => b.addedAt - a.addedAt)
-    .slice(0, 5);
-  const recent = uploads.length ? uploads : state.tracks.slice(0, 4);
-
-  els.recentList.innerHTML = recent.length
-    ? trackRows(recent)
-    : `<div class="empty-state">Drop audio files here or open files.</div>`;
 }
 
 function renderLibrary() {
@@ -471,9 +569,7 @@ function trackRows(tracks) {
 
 function getVisibleTracks() {
   let tracks = [...state.tracks];
-  if (state.view === "Uploads") {
-    tracks = tracks.filter((track) => track.source === "Upload");
-  } else if (state.view === "Favorites") {
+  if (state.view === "Favorites") {
     tracks = tracks.filter((track) => state.favorites.has(track.id));
   } else if (state.view === "Playlists" && state.selectedPlaylist) {
     tracks = tracks.filter((track) => matchesPlaylist(track, state.selectedPlaylist));
@@ -492,97 +588,7 @@ function getVisibleTracks() {
 }
 
 function matchesPlaylist(track, playlist) {
-  if (playlist === "Fresh Imports") return track.source === "Upload";
   return track.playlists?.includes(playlist);
-}
-
-async function importFiles(fileList) {
-  const files = Array.from(fileList || []).filter(isAudioFile);
-  if (!files.length) {
-    showToast("No audio");
-    return;
-  }
-
-  const importedIds = [];
-  for (const file of files) {
-    const track = await createTrackFromFile(file);
-    importedIds.push(track.id);
-    upsertTrack(track);
-    if (state.db) {
-      await saveStoredTrack(track);
-    }
-  }
-
-  if (importedIds.length) {
-    state.view = "Uploads";
-    state.selectedPlaylist = "";
-    state.query = "";
-    searchInput.value = "";
-    persistView();
-    if (!state.currentId || !getCurrentTrack()) {
-      state.currentId = importedIds[0];
-      syncAudioSource(false);
-    }
-    render();
-    showToast(importedIds.length === 1 ? "Imported" : `${importedIds.length} imported`);
-  }
-}
-
-async function createTrackFromFile(file) {
-  const id = `local-${hashString(`${file.name}-${file.size}-${file.lastModified}`)}`;
-  const parsed = parseFileName(file.name);
-  const url = URL.createObjectURL(file);
-  const duration = await probeDuration(url);
-  const colors = paletteFromString(file.name);
-  return {
-    id,
-    title: parsed.title,
-    artist: parsed.artist,
-    album: "Uploads",
-    cover: "",
-    duration,
-    colors,
-    playlists: ["Fresh Imports"],
-    source: "Upload",
-    format: formatFromFile(file),
-    size: file.size,
-    type: file.type,
-    addedAt: Date.now(),
-    blob: file,
-    url,
-  };
-}
-
-function upsertTrack(track) {
-  const existingIndex = state.tracks.findIndex((item) => item.id === track.id);
-  if (existingIndex >= 0) {
-    const oldTrack = state.tracks[existingIndex];
-    if (oldTrack.source === "Upload" && oldTrack.url && oldTrack.url !== track.url) {
-      URL.revokeObjectURL(oldTrack.url);
-    }
-    state.tracks.splice(existingIndex, 1, track);
-    return;
-  }
-  state.tracks.push(track);
-}
-
-function isAudioFile(file) {
-  return file.type.startsWith("audio/") || /\.(aac|aiff|flac|m4a|mp3|ogg|opus|wav|webm)$/i.test(file.name);
-}
-
-function parseFileName(name) {
-  const clean = name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ").trim();
-  const parts = clean.split(/\s+-\s+/);
-  if (parts.length >= 2) {
-    return {
-      artist: titleCase(parts[0]),
-      title: titleCase(parts.slice(1).join(" - ")),
-    };
-  }
-  return {
-    artist: "Local file",
-    title: titleCase(clean || "Untitled track"),
-  };
 }
 
 function playVisibleTracks() {
@@ -806,7 +812,7 @@ async function fetchRadioStations() {
         cover: station.favicon || "",
         duration: 0,
         colors: paletteFromString(station.name || station.stationuuid),
-        playlists: ["Fresh Imports"],
+        playlists: ["Radio"],
         source: "Radio",
         format: station.codec || "LIVE",
         addedAt: Date.now(),
@@ -915,46 +921,6 @@ function showToast(message) {
   state.toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(TRACK_STORE)) {
-        db.createObjectStore(TRACK_STORE, { keyPath: "id" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function readStoredTracks() {
-  return new Promise((resolve, reject) => {
-    const transaction = state.db.transaction(TRACK_STORE, "readonly");
-    const request = transaction.objectStore(TRACK_STORE).getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function saveStoredTrack(track) {
-  const { url, ...record } = track;
-  return new Promise((resolve, reject) => {
-    const transaction = state.db.transaction(TRACK_STORE, "readwrite");
-    const request = transaction.objectStore(TRACK_STORE).put(record);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function materializeStoredTrack(record) {
-  return {
-    ...record,
-    url: URL.createObjectURL(record.blob),
-  };
-}
-
 function createDemoWav(track) {
   const sampleRate = 22050;
   const seconds = track.duration;
@@ -1027,20 +993,6 @@ function softClip(value) {
   return Math.max(-1, Math.min(1, value - (value ** 3) / 3));
 }
 
-function probeDuration(url) {
-  return new Promise((resolve) => {
-    const probe = new Audio();
-    const done = (duration = 0) => {
-      probe.removeAttribute("src");
-      resolve(Number.isFinite(duration) ? duration : 0);
-    };
-    probe.addEventListener("loadedmetadata", () => done(probe.duration), { once: true });
-    probe.addEventListener("error", () => done(0), { once: true });
-    window.setTimeout(() => done(0), 3500);
-    probe.src = url;
-  });
-}
-
 function formatTime(value) {
   if (!Number.isFinite(value) || value <= 0) return "0:00";
   const minutes = Math.floor(value / 60);
@@ -1048,11 +1000,6 @@ function formatTime(value) {
     .toString()
     .padStart(2, "0");
   return `${minutes}:${seconds}`;
-}
-
-function formatFromFile(file) {
-  const ext = file.name.includes(".") ? file.name.split(".").pop() : "";
-  return (ext || file.type.replace("audio/", "") || "audio").slice(0, 8).toUpperCase();
 }
 
 function cleanStationName(value) {
@@ -1083,10 +1030,6 @@ function paletteFromString(value) {
   return palettes[Math.abs(hashNumber(value)) % palettes.length];
 }
 
-function hashString(value) {
-  return Math.abs(hashNumber(value)).toString(36);
-}
-
 function hashNumber(value) {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -1094,15 +1037,6 @@ function hashNumber(value) {
     hash |= 0;
   }
   return hash;
-}
-
-function titleCase(value) {
-  return value
-    .toLowerCase()
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 }
 
 function initials(value) {

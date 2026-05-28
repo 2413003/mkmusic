@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WaveRoom Music</title>
+    <title>MK Music</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23090a0d'/%3E%3Cpath d='M26 44V17l22-4v25' fill='none' stroke='%2320d6bd' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='44' r='8' fill='%23ff715f'/%3E%3Ccircle cx='42' cy='38' r='8' fill='%23f4c95d'/%3E%3C/svg%3E"
+      href="assets/mk-music-logo.svg"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -82,11 +82,6 @@
         <path d="M18 5v14"></path>
         <path d="m4 5 12 7-12 7z"></path>
       </symbol>
-      <symbol id="icon-upload" viewBox="0 0 24 24">
-        <path d="M12 16V4"></path>
-        <path d="m7 9 5-5 5 5"></path>
-        <path d="M4 20h16"></path>
-      </symbol>
       <symbol id="icon-volume" viewBox="0 0 24 24">
         <path d="M11 5 6 9H3v6h3l5 4z"></path>
         <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
@@ -98,16 +93,15 @@
       </symbol>
     </svg>
 
-    <input id="file-input" type="file" accept="audio/*" multiple hidden />
     <audio id="audio" preload="metadata"></audio>
 
-    <div class="app-shell" data-drop-zone>
+    <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#" aria-label="WaveRoom home">
+        <a class="brand" href="#" aria-label="MK Music home">
           <span class="brand-mark" aria-hidden="true">
             <svg><use href="#icon-music"></use></svg>
           </span>
-          <span class="brand-name">WaveRoom</span>
+          <span class="brand-name">MK Music</span>
         </a>
 
         <nav class="nav-list" aria-label="Main">
@@ -123,10 +117,6 @@
             <svg><use href="#icon-list"></use></svg>
             <span>Playlists</span>
           </button>
-          <button class="nav-item" type="button" data-view="Uploads" title="Uploads" aria-label="Uploads">
-            <svg><use href="#icon-upload"></use></svg>
-            <span>Uploads</span>
-          </button>
           <button class="nav-item" type="button" data-view="Favorites" title="Favorites" aria-label="Favorites">
             <svg><use href="#icon-heart"></use></svg>
             <span>Favorites</span>
@@ -137,14 +127,8 @@
           <div class="eyeless-label">Playlists</div>
           <button type="button" data-playlist="Late Night">Late Night</button>
           <button type="button" data-playlist="Deep Focus">Deep Focus</button>
-          <button type="button" data-playlist="Fresh Imports">Fresh Imports</button>
           <button type="button" data-playlist="Drive Home">Drive Home</button>
         </div>
-
-        <button class="sidebar-upload" type="button" data-action="open-files" title="Open files" aria-label="Open files">
-          <svg><use href="#icon-folder"></use></svg>
-          <span>Open files</span>
-        </button>
       </aside>
 
       <main class="content">
@@ -154,38 +138,40 @@
             <input id="search-input" type="search" placeholder="Search" autocomplete="off" />
           </div>
           <div class="topbar-actions">
+            <div class="apps-launcher-shell">
+              <button
+                id="apps-launcher-toggle"
+                class="ghost-button icon-only apps-launcher-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="apps-launcher-menu"
+                aria-label="MK apps"
+                title="MK apps"
+              >
+                <span class="apps-launcher-icon" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
+              </button>
+              <section id="apps-launcher-menu" class="apps-launcher-menu" hidden aria-label="MK apps">
+                <div class="apps-launcher-menu__head">
+                  <span class="apps-launcher-menu__title">MK apps</span>
+                </div>
+                <div id="apps-launcher-grid" class="apps-grid" aria-label="MK apps"></div>
+              </section>
+            </div>
             <button class="ghost-button icon-only" type="button" data-action="clear-session" title="Clear queue" aria-label="Clear queue">
               <svg><use href="#icon-x"></use></svg>
             </button>
-            <button class="primary-button icon-only" type="button" data-action="open-files" title="Import" aria-label="Import">
-              <svg><use href="#icon-upload"></use></svg>
-            </button>
           </div>
         </header>
-
-        <section class="hero-panel" aria-labelledby="home-title" hidden>
-          <div class="hero-copy">
-            <h1 id="home-title">Good evening</h1>
-            <p>No ads. Your files. Your room.</p>
-            <div class="hero-actions">
-              <button class="primary-button" type="button" data-action="play-visible">
-                <svg><use href="#icon-play"></use></svg>
-                <span>Play library</span>
-              </button>
-              <button class="ghost-button" type="button" data-action="open-files">Open files</button>
-            </div>
-          </div>
-          <div class="hero-stack" aria-label="Featured tracks">
-            <div class="stack-card stack-card-a">
-              <img src="assets/dreamstate-drive.jpg" alt="Dreamstate Drive cover art" />
-              <span>Dreamstate Drive</span>
-            </div>
-            <div class="stack-card stack-card-b">
-              <img src="assets/neon-atlas.jpg" alt="Neon Atlas cover art" />
-              <span>Neon Atlas</span>
-            </div>
-          </div>
-        </section>
 
         <section class="shelf" aria-labelledby="mixes-title">
           <div class="section-heading">
@@ -195,16 +181,6 @@
             </button>
           </div>
           <div id="mix-grid" class="mix-grid"></div>
-        </section>
-
-        <section class="shelf recent-section" aria-labelledby="imported-title">
-          <div class="section-heading">
-            <h2 id="imported-title">Recent</h2>
-            <button type="button" data-action="open-files" title="Open files" aria-label="Open files">
-              <svg><use href="#icon-folder"></use></svg>
-            </button>
-          </div>
-          <div id="recent-list" class="track-list"></div>
         </section>
 
         <section class="shelf" aria-labelledby="library-title">
@@ -289,9 +265,6 @@
         </div>
 
         <div class="player-tools">
-          <button class="icon-button" type="button" data-action="open-files" aria-label="Import audio files">
-            <svg><use href="#icon-upload"></use></svg>
-          </button>
           <button class="icon-button" type="button" aria-label="Local device">
             <svg><use href="#icon-device"></use></svg>
           </button>

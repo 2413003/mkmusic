@@ -1,6 +1,6 @@
-# WaveRoom Music
+# MK Music
 
-WaveRoom is an ad-free local music web app. It plays audio files you import from your computer and stores imported tracks in the browser's local library when IndexedDB is available.
+MK Music is a minimal live-radio music web app.
 
 ## Run
 
@@ -14,6 +14,6 @@ Then visit `http://localhost:4173`.
 
 ## Notes
 
+- Live stations come from public radio directory data.
 - The included demo tracks are procedurally generated in the browser.
-- The app does not bypass licensing, remove ads from another service, or stream copyrighted catalogs.
-- Imported files stay local to your browser storage.
+- The app does not bypass licensing, remove ads from another service, or stream copyrighted catalogs on demand.
